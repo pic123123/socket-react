@@ -1,25 +1,73 @@
-import React from "react";
-import logo from "./logo.svg";
+import React, { useEffect, useState } from "react";
 import "./App.css";
-import axios from "axios";
+import io from "socket.io-client";
+import { TextField } from "@mui/material";
 
 function App() {
-  const [httpState, setHttpState] = React.useState("");
-  async function onClickHttp() {
-    const apiResult = await axios.get("http://localhost:4000/api");
-    apiResult.status && setHttpState(apiResult.data.message);
-  }
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <button onClick={onClickHttp}>HTTP 통신 TEST</button>
+  const [state, setState] = useState({ message: "", name: "" });
+  const [chat, setChat] = useState([]);
+  const [socket, setSocket] = useState(
+    io(`http://localhost:4000`, {
+      transports: ["websocket"],
+    })
+  );
+  useEffect(() => {
+    //  소켓 연결
+    socket.on("message", ({ name, message }) => {
+      setChat([...chat, { name, message }]);
+    });
+  }, [chat, socket]);
 
-        {httpState && <p>백엔드 통신 성공, {httpState}</p>}
-      </header>
+  //TextField에 입력하는 이벤트 감지해서 상태에 담는 함수
+  const onTextChange = (e) => {
+    setState({ ...state, [e.target.name]: e.target.value });
+  };
+
+  const onMessageSubmit = (e) => {
+    e.preventDefault();
+    const { name, message } = state;
+    socket.emit("message", { name, message });
+    setState({ message: "", name });
+  };
+
+  const renderChat = () => {
+    return chat.map(({ name, message }, index) => (
+      <div key={index}>
+        <h3>
+          {name}:<span>{message}</span>
+        </h3>
+      </div>
+    ));
+  };
+
+  return (
+    <div className="card">
+      <form onSubmit={onMessageSubmit}>
+        <h1>Messenger</h1>
+        <div className="name-field">
+          <TextField
+            name="name"
+            onChange={(e) => onTextChange(e)}
+            value={state.name}
+            label="Name"
+          />
+        </div>
+        <div>
+          <TextField
+            name="message"
+            onChange={(e) => onTextChange(e)}
+            value={state.message}
+            id="outlined-multiline-static"
+            variant="outlined"
+            label="Message"
+          />
+        </div>
+        <button>Send Message</button>
+      </form>
+      <div className="render-chat">
+        <h1>채팅방</h1>
+        {renderChat()}
+      </div>
     </div>
   );
 }
